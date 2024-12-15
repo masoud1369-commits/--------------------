@@ -3,6 +3,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 import asyncio
+from bs4 import BeautifulSoup
 
 # فعال‌سازی لاگینگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -59,7 +60,7 @@ async def search_video(update: Update, context: CallbackContext):
             'part': 'snippet',
             'q': video_name,
             'key': YOUTUBE_API_KEY,
-            'maxResults': 5
+            'maxResults': 8  # تغییر تعداد نتایج به ۸
         })
 
         if response.status_code != 200:
@@ -113,6 +114,54 @@ async def display_search_results(update: Update, context: CallbackContext, video
         reply_markup=reply_markup
     )
 
+# گرفتن محتویات صفحه
+def get_page_content(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.text
+        else:
+            logger.error(f"Error fetching page content, status code: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request failed: {e}")
+        return None
+
+# استخراج لینک‌های دانلود از صفحه
+def extract_download_links(page_content):
+    soup = BeautifulSoup(page_content, 'html.parser')
+    
+    # جستجو برای لینک‌ها
+    video_link = soup.find('a', {'class': 'download-video'})  # کلاس فرضی برای ویدیو
+    mp3_link = soup.find('a', {'class': 'download-mp3'})      # کلاس فرضی برای mp3
+    
+    # اگر لینک‌ها پیدا شدند، آنها را برگردان
+    if video_link and mp3_link:
+        return video_link['href'], mp3_link['href']
+    else:
+        logger.error("Download links not found on the page.")
+        return None, None
+
+# ارسال لینک‌های دانلود نهایی به کاربر
+async def send_final_links(update: Update, context: CallbackContext, page_url):
+    # گرفتن محتویات صفحه
+    page_content = get_page_content(page_url)
+    
+    if page_content:
+        # استخراج لینک‌های دانلود
+        video_url, mp3_url = extract_download_links(page_content)
+        
+        if video_url and mp3_url:
+            # ارسال لینک‌ها به کاربر
+            await update.message.reply_text(
+                f"✅ لینک ویدیوی شما: {video_url}\n"
+                f"✅ لینک MP3 شما: {mp3_url}"
+            )
+        else:
+            await update.message.reply_text("❌ مشکلی در استخراج لینک‌های دانلود پیش آمد. لطفاً بعداً دوباره تلاش کنید.")
+    else:
+        await update.message.reply_text("❌ مشکلی در دریافت صفحه پیش آمد. لطفاً دوباره تلاش کنید.")
+
 # ارسال لینک دانلود اصلاح‌شده با پیش‌نمایش
 async def send_modified_link(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -121,7 +170,7 @@ async def send_modified_link(update: Update, context: CallbackContext):
         selected_video = user_search_results[query.message.chat_id][video_index]
         logger.info(f"User selected video: {selected_video['title']}")
 
-        # تغییر آدرس ویدیو به لینک قابل دانلود مشابه با utjetbot
+        # تغییر آدرس ویدیو
         original_url = selected_video['url']
         modified_url = original_url.replace("youtube.com", "youtubepp.com")
 
@@ -149,12 +198,8 @@ async def send_modified_link(update: Update, context: CallbackContext):
         logger.error("Invalid video selection.")
         await query.message.edit_text("❌ انتخاب نامعتبر، لطفاً دوباره تلاش کنید.")
         await query.answer()
-    except Exception as e:
-        logger.error(f"Error modifying the download link: {e}")
-        await query.message.edit_text("❌ ارسال لینک دانلود با شکست مواجه شد. لطفاً بعداً دوباره تلاش کنید.")
-        await query.answer()
 
-# پیکربندی و اجرای ربات
+# هندلر برای دریافت لینک و ارسال لینک‌های نهایی
 def main():
     logger.info("Starting the bot application")
     application = Application.builder().token(TOKEN).build()
@@ -164,7 +209,6 @@ def main():
     application.add_handler(CommandHandler("help", send_help))
     application.add_handler(CommandHandler("search", search_video))
     application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"video_\d+"))
-    application.add_handler(CallbackQueryHandler(search_video, pattern='new_search'))
 
     # اجرای ربات
     application.run_polling()
