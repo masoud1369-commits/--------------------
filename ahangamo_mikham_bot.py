@@ -1,10 +1,10 @@
 import logging
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Sticker
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 import asyncio
-from bs4 import BeautifulSoup
 import speedtest
+import random
 
 # فعال‌سازی لاگینگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -18,6 +18,12 @@ session = requests.Session()
 # نگه‌داری نتایج جستجوی اخیر برای هر کاربر
 user_search_results = {}
 
+# استیکرهای مختلف که می‌توانند در ربات استفاده شوند
+stickers = [
+    "CAACAgUAAxkBAAIBF2VXh0eDB1fIWGqKYt0WqiyBco_XAAmZAQACgwIAAmHrwZ3Jf0kHk0gE",
+    "CAACAgUAAxkBAAIBF2JXh0eDB1fIWGqKYt0WqiyBco_XAAmZAQACgwIAAmHrwZ3Jf0kHk0gE"
+]
+
 # تابعی برای گرفتن سرعت اینترنت کاربر
 def check_internet_speed():
     st = speedtest.Speedtest()
@@ -26,39 +32,44 @@ def check_internet_speed():
     ping = st.results.ping
     return download_speed, ping
 
-# دستور /start
+# دستور /start (بدون دکمه‌ها و منوی جدید)
 async def send_welcome(update: Update, context: CallbackContext):
     logger.info("Handling /start command")
-    keyboard = [
-        [InlineKeyboardButton("شروع", callback_data='start')],
-        [InlineKeyboardButton("راهنما", callback_data='help')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
+    
+    # ارسال استیکر قبل از پیام خوشامدگویی
+    sticker_id = random.choice(stickers)  # انتخاب یک استیکر تصادفی از لیست
+    await update.message.reply_sticker(sticker_id)
+    
+    # پیام خوشامدگویی
     await update.message.reply_text(
         "سلام! من ربات جستجوگر یوتیوبم! 😎\n"
-        "با من می‌تونی ویدیوهای یوتیوب رو پیدا کنی و دانلود کنی. دکمه 'شروع' رو بزن! 🚀",
-        reply_markup=reply_markup
+        "با من می‌تونی ویدیوهای یوتیوب رو پیدا کنی و دانلود کنی.\n"
+        "لطفاً نام ویدیو مورد نظر خود را ارسال کن تا شروع به جستجو کنم!"
     )
 
 # دستور /help
 async def send_help(update: Update, context: CallbackContext):
     logger.info("Handling /help command")
     help_text = (
-        "دستورهای من 😜:\n\n"
-        "1. /start: شروع به کار با من.\n"
-        "2. /help: نمایش دستورالعمل‌های من.\n"
-        "3. /search [نام ویدیو]: جستجو برای ویدیوها در یوتیوب.\n"
-        "   - مثلا: /search گربه‌های خنده‌دار 😹\n"
+        "📚 <b>دستورالعمل‌های ربات:</b>\n\n"
+        "1. <b>/start:</b> برای شروع به جستجو، فقط نام ویدیو رو ارسال کن.\n"
+        "2. <b>/help:</b> برای دیدن دستورالعمل‌های من.\n"
+        "3. <b>/search [نام ویدیو]:</b> جستجو برای ویدیوها در یوتیوب.\n"
+        "   - برای مثال: /search گربه‌های خنده‌دار 😹\n"
         "4. انتخاب یک ویدیو و دریافت لینک دانلود.\n"
-        "5. بله یا خیر؟ آیا سرعت اینترنت و پینگت رو می‌خواهی ببینی؟ 🤔"
+        "5. بله یا خیر؟ آیا سرعت اینترنت و پینگ شما رو می‌خواهید ببینید؟ 🤔"
     )
-    await update.message.reply_text(help_text)
+    # ارسال استیکر در پاسخ به کمک
+    sticker_id = random.choice(stickers)
+    await update.message.reply_sticker(sticker_id)
+
+    await update.message.reply_text(help_text, parse_mode="HTML")
 
 # دستور /search
 async def search_video(update: Update, context: CallbackContext):
     logger.info("Handling /search command")
-    video_name = ' '.join(context.args) if context.args else None
+    video_name = update.message.text  # از متن پیام ارسال شده توسط کاربر استفاده می‌کنیم
+
     if not video_name:
         logger.warning("No video name provided in /search command")
         await update.message.reply_text("🤔 ای بابا! نام ویدیو رو فراموش کردی وارد کنی؟")
@@ -110,11 +121,14 @@ async def search_video(update: Update, context: CallbackContext):
 async def display_search_results(update: Update, context: CallbackContext, video_results):
     logger.info("Displaying search results to user")
     keyboard = [
-        [InlineKeyboardButton(f"{i+1}. {video['title']}", callback_data=f"video_{i}")] 
+        [InlineKeyboardButton(f"{i+1}. {video['title']} 🎥", callback_data=f"video_{i}")] 
         for i, video in enumerate(video_results)
     ]
-    keyboard.append([InlineKeyboardButton("🔄 جستجوی جدید", callback_data='new_search')])
     reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # ارسال استیکر پس از نمایش نتایج جستجو
+    sticker_id = random.choice(stickers)  # انتخاب استیکر تصادفی
+    await update.message.reply_sticker(sticker_id)
 
     await update.message.reply_text(
         "🎥 ویدیوهای پیدا شده:\n\nلطفاً یک ویدیو رو انتخاب کن که دانلودش کنی!\n",
@@ -158,51 +172,24 @@ async def send_modified_link(update: Update, context: CallbackContext):
 # از کاربر می‌خواهیم که آیا می‌خواهد سرعت اینترنت و پینگ را مشاهده کند یا خیر
 async def ask_for_speed_check(query):
     keyboard = [
-        [InlineKeyboardButton("بله", callback_data='yes_speed')],
-        [InlineKeyboardButton("خیر", callback_data='no_speed')]
+        [InlineKeyboardButton("بله 👍", callback_data='check_speed')],
+        [InlineKeyboardButton("خیر 👎", callback_data='no_speed')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(
-        "\n👨‍💻 آیا می‌خوای سرعت اینترنت و پینگت را مشاهده کنی؟"
-         "ممکنه یمقدار طول بکشه! یکبار دکمه >بله< رو بزن و یکم صبور باش.\n\n"
-         ,
-        reply_markup=reply_markup
-    )
+    await query.message.reply_text("آیا می‌خواهید سرعت اینترنت و پینگ خود را مشاهده کنید؟", reply_markup=reply_markup)
 
-# پاسخ به انتخاب کاربر برای مشاهده سرعت اینترنت
-async def handle_speed_check_response(update: Update, context: CallbackContext):
-    query = update.callback_query
-    if query.data == 'yes_speed':
-        download_speed, ping = check_internet_speed()
-        speed_message = (
-            f"🌐 سرعت دانلود شما: {download_speed:.2f} Mbps\n"
-            f"📶 پینگ: {ping} ms\n\n"
-            "🔮همه ما میدونیم شرایط سخت زندگی ما، مثل سرعت اینترنت ماست، یه روزی بالاخره مال ما هم میره بالا داداشم💫"
-            "\n\n🔹 شاید این شعر از مولانا به دردت بخوره:\n"
-            "در دل شب نشسته‌ام با غم‌هایم\n"
-            "دریغا که کار جهان تنها به خواب رفتن نیست.\n"
-        )
-        await query.message.reply_text(speed_message)
-
-    elif query.data == 'no_speed':
-        await query.message.reply_text("🚶‍♂️بریم دوباره شروع کنیم! همون بهتر که ندونی اوضاع چقدر بده")
-        # راه‌اندازی مجدد ربات
-        await send_welcome(update, context)
-
-    await query.answer()
-
-# هندلر برای دریافت لینک و ارسال لینک‌های نهایی
-def main():
-    logger.info("Starting the bot application")
+# ایجاد یک آبجکت برنامه
+async def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", send_welcome))
     application.add_handler(CommandHandler("help", send_help))
     application.add_handler(CommandHandler("search", search_video))
-    application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"video_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_speed_check_response, pattern=r"yes_speed|no_speed"))
+    application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"^video_"))
+    application.add_handler(CallbackQueryHandler(ask_for_speed_check, pattern=r"^check_speed"))
+    
+    await application.run_polling()
 
-    application.run_polling()
-
+# شروع اجرای برنامه
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
