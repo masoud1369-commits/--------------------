@@ -2,7 +2,6 @@ import logging
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
-import asyncio
 import speedtest
 import random
 
@@ -188,8 +187,9 @@ async def main():
     application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"^video_"))
     application.add_handler(CallbackQueryHandler(ask_for_speed_check, pattern=r"^check_speed"))
     
+    # اجرای برنامه به صورت polling
     await application.run_polling()
 
 # شروع اجرای برنامه
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
