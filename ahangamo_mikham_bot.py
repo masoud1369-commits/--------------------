@@ -5,7 +5,6 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Call
 import speedtest
 import random
 
-
 # فعال‌سازی لاگینگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -13,18 +12,21 @@ logger = logging.getLogger(__name__)
 
 TOKEN = '8023249611:AAFRiRypVo6BSt-N3vL0dtzMz4F0NgX_10Q'  # توکن ربات تلگرام
 YOUTUBE_API_KEY = 'AIzaSyBhwd2T6v4wSlEV69euIUfnUlrmknynS2g'  # کلید API YouTube
-session = requests.Session()
 
 # نگه‌داری نتایج جستجوی اخیر برای هر کاربر
 user_search_results = {}
 
 # تابعی برای گرفتن سرعت اینترنت کاربر
 def check_internet_speed():
-    st = speedtest.Speedtest()
-    st.get_best_server()
-    download_speed = st.download() / 1_000_000  # تبدیل به مگابیت بر ثانیه
-    ping = st.results.ping
-    return download_speed, ping
+    try:
+        st = speedtest.Speedtest()
+        st.get_best_server()
+        download_speed = st.download() / 1_000_000  # تبدیل به مگابیت بر ثانیه
+        ping = st.results.ping
+        return download_speed, ping
+    except Exception as e:
+        logger.error(f"Speed test failed: {e}")
+        return None, None
 
 # دستور /start
 async def send_welcome(update: Update, context: CallbackContext):
@@ -66,7 +68,7 @@ async def search_video(update: Update, context: CallbackContext):
 
     try:
         logger.info(f"Searching for video: {video_name}")
-        response = session.get("https://www.googleapis.com/youtube/v3/search", params={
+        response = requests.get("https://www.googleapis.com/youtube/v3/search", params={
             'part': 'snippet',
             'q': video_name,
             'key': YOUTUBE_API_KEY,
@@ -175,35 +177,36 @@ async def handle_speed_check_response(update: Update, context: CallbackContext):
     query = update.callback_query
     if query.data == 'yes_speed':
         download_speed, ping = check_internet_speed()
-        speed_message = (
-            f"🌐 سرعت دانلود شما: {download_speed:.2f} Mbps\n"
-            f"📶 پینگ: {ping} ms\n\n"
-            "🚀 آقا، دقت کن! شاید این سرعت اینترنت شما به اندازه یه لاک‌پشت باشه، ولی یه روزی به همون سرعت می‌رسه که کیبوردت برات پرچم می‌زاره!\n\n"
-            "🔮 احتمالا این شعر از مولانا به دردت می‌خوره:\n"
-            "در دل شب نشسته‌ام با غم‌هایم\n"
-            "دریغا که کار جهان تنها به خواب رفتن نیست.\n"
-        )
-        await query.message.reply_text(speed_message)
+        if download_speed is not None and ping is not None:
+            speed_message = (
+                f"🌐 سرعت دانلود شما: {download_speed:.2f} Mbps\n"
+                f"📶 پینگ: {ping} ms\n\n"
+                "🚀 آقا، دقت کن! شاید این سرعت اینترنت شما به اندازه یه لاک‌پشت باشه، ولی یه روزی به همون سرعت می‌رسه که کیبوردت برات پرچم می‌زاره!\n\n"
+                "🔮 احتمالا این شعر از مولانا به دردت می‌خوره:\n"
+                "در دل شب نشسته‌ام با غم‌هایم\n"
+                "دریغا که کار جهان تنها به خواب رفتن نیست.\n"
+            )
+            await query.message.reply_text(speed_message)
+        else:
+            await query.message.reply_text("متاسفانه نتونستم سرعت رو بگیرم. لطفا دوباره امتحان کن!")
+    else:
+        await query.message.reply_text("خیلی خوب، باشه! سراغ چیزهای دیگه میریم.")
 
-    elif query.data == 'no_speed':
-        await query.message.reply_text("🚶‍♂️بریم دوباره شروع کنیم! همون بهتر که ندونی اوضاع چقدر بده")
-        # راه‌اندازی مجدد ربات
-        await send_welcome(update, context)
-
-    await query.answer()
-
-# هندلر برای دریافت لینک و ارسال لینک‌های نهایی
+# اجرای ربات
 def main():
-    logger.info("Starting the bot application")
     application = Application.builder().token(TOKEN).build()
 
+    # ثبت دستورات
     application.add_handler(CommandHandler("start", send_welcome))
     application.add_handler(CommandHandler("help", send_help))
     application.add_handler(CommandHandler("search", search_video))
+
+    # ثبت CallbackQueryHandler
     application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"video_\d+"))
-    application.add_handler(CallbackQueryHandler(handle_speed_check_response, pattern=r"yes_speed|no_speed"))
+    application.add_handler(CallbackQueryHandler(handle_speed_check_response, pattern='yes_speed'))
+    application.add_handler(CallbackQueryHandler(handle_speed_check_response, pattern='no_speed'))
 
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
