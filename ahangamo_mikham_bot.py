@@ -1,9 +1,8 @@
 import logging
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Sticker
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 import speedtest
-import random
 
 # فعال‌سازی لاگینگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -137,7 +136,7 @@ async def send_modified_link(update: Update, context: CallbackContext):
 
         preview_text = (
             f"✅ ویدیو انتخابی شما: <b>{selected_video['title']}</b>\n\n"
-            f"🔗 <a href='{original_url}'>پیش‌نمایش ویدیو</a>"
+            f"🔗 <a href='{original_url}'>نمایش ویدیو</a>"
         )
         await query.message.reply_text(preview_text, parse_mode="HTML")
 
