@@ -31,6 +31,17 @@ async def send_welcome(update: Update, context: CallbackContext):
         reply_markup=reply_markup
     )
 
+# هندلر برای دکمه "شروع"
+async def handle_start_button(update: Update, context: CallbackContext):
+    logger.info("User pressed 'شروع' button")
+    await update.callback_query.answer()
+
+    # ارسال پیام توضیحات جستجو
+    await update.callback_query.message.reply_text(
+        "برای جستجو در یوتیوب، کافیست دستور '/search' رو وارد کنید و بعد از اون نام ویدیویی که میخواید پیدا کنید رو بنویسید.\n"
+        "مثال: '/search گربه‌های خنده‌دار'"
+    )
+
 # دستور /help
 async def send_help(update: Update, context: CallbackContext):
     logger.info("Handling /help command")
@@ -208,6 +219,7 @@ def main():
     application.add_handler(CommandHandler("start", send_welcome))
     application.add_handler(CommandHandler("help", send_help))
     application.add_handler(CommandHandler("search", search_video))
+    application.add_handler(CallbackQueryHandler(handle_start_button, pattern='start'))
     application.add_handler(CallbackQueryHandler(send_modified_link, pattern=r"video_\d+"))
 
     # اجرای ربات
