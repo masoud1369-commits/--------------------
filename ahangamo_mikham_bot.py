@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 import asyncio
 from bs4 import BeautifulSoup
+import speedtest
 
 # فعال‌سازی لاگینگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -16,6 +17,14 @@ session = requests.Session()
 
 # نگه‌داری نتایج جستجوی اخیر برای هر کاربر
 user_search_results = {}
+
+# تابعی برای گرفتن سرعت اینترنت کاربر
+def check_internet_speed():
+    st = speedtest.Speedtest()
+    st.get_best_server()
+    download_speed = st.download() / 1_000_000  # تبدیل به مگابیت بر ثانیه
+    ping = st.results.ping
+    return download_speed, ping
 
 # دستور /start
 async def send_welcome(update: Update, context: CallbackContext):
@@ -120,10 +129,30 @@ async def display_search_results(update: Update, context: CallbackContext, video
     keyboard.append([InlineKeyboardButton("🔄 جستجوی جدید", callback_data='new_search')])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # ارسال پیغام طنزآمیز بررسی سرعت اینترنت
+    await send_slow_speed_message(update)
+
     await update.message.reply_text(
         "لطفاً یک ویدیو را انتخاب کنید:",
         reply_markup=reply_markup
     )
+
+# ارسال پیغام طنزآمیز بررسی سرعت اینترنت
+async def send_slow_speed_message(update: Update):
+    download_speed, ping = check_internet_speed()
+    
+    # تنظیم پیام طنزآمیز بر اساس سرعت اینترنت
+    if download_speed < 0.5:  # تغییر شرط به 0.5 Mbps
+        speed_message = (
+            "🌐 وای! اینترنتت خیلی کند شده! سرعت دانلود شما: "
+            f"{download_speed:.2f} Mbps و پینگ: {ping} ms. حالا که تو ایران هستی، باید حواست به سرعتت باشه! 😅\n"
+            "ممکنه ارسال لینک‌ها کمی طول بکشه، لطفاً صبور باش!"
+        )
+    else:
+        speed_message = "سرعت اینترنت شما خوبه، به زودی لینک‌ها ارسال می‌شن! 🚀"
+    
+    # ارسال پیغام طنزآمیز
+    await update.message.reply_text(speed_message)
 
 # گرفتن محتویات صفحه
 def get_page_content(url):
