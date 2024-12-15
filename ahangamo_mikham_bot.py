@@ -137,12 +137,26 @@ async def display_search_results(update: Update, context: CallbackContext, video
         reply_markup=reply_markup
     )
 
+# ارسال پیام لودینگ به همراه استیکر
+async def send_loading_message(update: Update):
+    loading_message = await update.message.reply_text("در حال بررسی سرعت اینترنت شما...⏳")
+    # ارسال استیکر لودینگ
+    await update.message.reply_sticker("CAACAgIAAxkBAAEG4qVkXqaQkshVtA9IMAmrfUj9uG8HAAI3iAAMtu44I5vTbdz7FvU3AQ")
+    return loading_message
+
 # ارسال پیغام طنزآمیز بررسی سرعت اینترنت
 async def send_slow_speed_message(update: Update):
+    # ارسال پیام لودینگ و استیکر
+    loading_message = await send_loading_message(update)
+    
+    # اندازه‌گیری سرعت اینترنت
     download_speed, ping = check_internet_speed()
     
-    # تنظیم پیام طنزآمیز بر اساس سرعت اینترنت
-    if download_speed < 0.5:  # تغییر شرط به 0.5 Mbps
+    # حذف پیام لودینگ بعد از اتمام تست
+    await loading_message.delete()
+
+    # نمایش سرعت و پینگ
+    if download_speed < 0.3:  # تغییر شرط به 0.5 Mbps
         speed_message = (
             "🌐 وای! اینترنتت خیلی کند شده! سرعت دانلود شما: "
             f"{download_speed:.2f} Mbps و پینگ: {ping} ms. حالا که تو ایران هستی، باید حواست به سرعتت باشه! 😅\n"
